@@ -1,49 +1,91 @@
 const { response } = require('express')
+const bcryptjs = require('bcryptjs')
+
+const Usuario = require('../models/usuario');
 
 
-const usuariosGet = (req, res = response) => {
 
-    const {edad, nombre, apikey = 'no apikey'} = req.query;
+const usuariosGet = async(req, res = response) => {
 
-    res.status(201).json({
-        msg: 'peticion get desde controlador',
-        nombre,
-        edad,
-        apikey    
-    })
+    //const {edad, nombre, apikey = 'no apikey'} = req.query;
+    const { limite = 5, desde = 0 } = req.query;
+    const condicion = { estado: true};
+    
+    //const usuarios = await Usuario.find(condicion)
+    //    .skip( Number(desde) )
+    //    .limit( Number(limite) );
+
+    //const total = await Usuario.countDocuments(condicion);
+
+    const [ total, usuarios ] = await Promise.all([
+        Usuario.countDocuments(condicion),
+        Usuario.find(condicion)
+            .skip( Number(desde) )
+            .limit( Number(limite) )
+    ])
+
+    res.json( {
+        total,
+        usuarios
+    });
 };
 
-const usuariosPost  = (req, res = response) => {
+const usuariosPost  = async (req, res = response) => {
 
-    const {nombre, edad} = req.body; 
+    
+    const { nombre, correo, password, rol} = req.body; 
+    const usuario = new Usuario({nombre, correo, password, rol});
+
+    //verificar si el correo existe
+    //const existeEmail = await Usuario.findOne({ correo });
+    //if( existeEmail ){
+    //    return res.status(400).json({
+    //        msg: 'Ese correo ya esta registrado'
+    //    });
+    //}
 
 
-    res.json({
-        msg: 'peticion post desde controlador',    
-        nombre, edad
-    })
+    //encryptar la contrasena
+    const salt = bcryptjs.genSaltSync();//viene por defecto en 10 pero se puede encryptar con un numero mayor
+    usuario.password = bcryptjs.hashSync( password, salt );
+
+    //guardar en db
+    await usuario.save();
+
+
+    res.json( usuario );
 };
 
-const usuariosPut = (req, res = response) => {
+const usuariosPut = async(req, res = response) => {
 
-    const id = req.params.id;
+    const { id } = req.params;
+    const { _id, password, google, ...resto } = req.body;
 
-    res.status(400).json({
-        msg: 'peticion put desde controlador',
-        id    
-    })
+    if( password ){
+        const salt = bcryptjs.genSaltSync();//viene por defecto en 10 pero se puede encryptar con un numero mayor
+        resto.password = bcryptjs.hashSync( password, salt );
+    }
+
+    const usuario = await Usuario.findByIdAndUpdate( id, resto );
+
+    res.json( usuario )
 };
 
-const usuariosDelete= (req, res = response) => {
-    res.status(201).json({
-        msg: 'peticion delete desde controlador'    
-    })
+const usuariosDelete = async (req, res = response) => {
+
+    const { id } = req.params;
+
+    //borrado fisico
+    //const usuario = await Usuario.findByIdAndDelete( id );
+
+    //actualziar estado del usuario
+    const usuario = await Usuario.findByIdAndUpdate( id, { estado: false} );
+
+    res.json( usuario );
 };
 
 const usuariosPatch = (req, res = response) => {
-    res.status(201).json({
-        msg: 'peticion patch desde controlador'    
-    })
+    res.json( usuario );
 };
 
    
